@@ -17,6 +17,13 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Taskomatic.Core", "Taskomat
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Taskomatic.Tests", "Taskomatic.Tests\Taskomatic.Tests.csproj", "{C3FCFE44-ED76-456C-8E14-E3EC816CFEB8}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".github", ".github", "{E6B61FC1-EBCA-4A0C-844E-C2F9031F7393}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "workflows", "workflows", "{87CB7D42-020B-4E0C-A5A7-6A5C10068F6B}"
+	ProjectSection(SolutionItems) = preProject
+		.github\workflows\main.yml = .github\workflows\main.yml
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -38,5 +45,8 @@ Global
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{87CB7D42-020B-4E0C-A5A7-6A5C10068F6B} = {E6B61FC1-EBCA-4A0C-844E-C2F9031F7393}
 	EndGlobalSection
 EndGlobal
