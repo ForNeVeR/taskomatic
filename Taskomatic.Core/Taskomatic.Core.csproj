@@ -2,6 +2,7 @@
     <PropertyGroup>
         <OutputType>Library</OutputType>
         <TargetFramework>net45</TargetFramework>
+        <Nullable>enable</Nullable>
     </PropertyGroup>
     <ItemGroup>
         <PackageReference Include="Avalonia" Version="0.4.0" />
@@ -14,5 +15,6 @@
         <PackageReference Include="System.Reactive.Core" Version="3.1.1" />
         <PackageReference Include="System.Reactive.Interfaces" Version="3.1.1" />
         <PackageReference Include="System.Reactive.Windows.Threading" Version="3.1.1" />
+        <PackageReference Include="System.ValueTuple" Version="4.5.0" /> <!-- TODO[#16]: Remove this after migration -->
     </ItemGroup>
 </Project>

@@ -8,110 +8,125 @@ using Newtonsoft.Json;
 using Octokit;
 using ReactiveUI;
 
-namespace Taskomatic.Core
+namespace Taskomatic.Core;
+
+public class IssueViewModel
 {
-    public class IssueViewModel
+    public string Project { get; }
+    public int Id { get; }
+    public string Name { get; }
+
+    public ItemState Status { get; }
+    public IReadOnlyList<string> Assignees { get; }
+
+    public string FullInfo => $"{Project}#{Id}: {Name}";
+
+    public string AssigneeNames => string.Join(",", Assignees);
+
+    public LazyAsync<string> LocalStatus { get; }
+
+    public ReactiveCommand<object> SyncCommand { get; }
+
+    public IssueViewModel(Config config, string project, Issue issue)
     {
-        public string Project { get; }
-        public int Id { get; }
-        public string Name { get; }
+        Project = project;
+        Id = issue.Number;
+        Name = issue.Title;
+        Status = issue.State;
+        Assignees = issue.Assignees.Select(u => u.Login).ToList();
 
-        public ItemState Status { get; }
-        public IReadOnlyList<string> Assignees { get; }
-
-        public string FullInfo => $"{Project}#{Id}: {Name}";
-
-        public string AssigneeNames => string.Join(",", Assignees);
-
-        public LazyAsync<string> LocalStatus { get; }
-
-        public ReactiveCommand<object> SyncCommand { get; }
-
-        public IssueViewModel(Config config, string project, Issue issue)
+        LocalStatus = new LazyAsync<string>(() => GetLocalStatus(config, project, Id), "Loading…");
+        SyncCommand = ReactiveCommand.Create(
+            LocalStatus.ObservableForProperty(ls => ls.Value).Select(p => p.Value == "Not imported"));
+        SyncCommand.Subscribe(async _ => // TODO: NoAwait
         {
-            Project = project;
-            Id = issue.Number;
-            Name = issue.Title;
-            Status = issue.State;
-            Assignees = issue.Assignees.Select(u => u.Login).ToList();
+            await SyncTask(config, project, Id, Name);
+            LocalStatus.Reset();
+            var value = LocalStatus.Value;
+        });
+    }
 
-            LocalStatus = new LazyAsync<string>(() => GetLocalStatus(config, project, Id), "Loading…");
-            SyncCommand = ReactiveCommand.Create(
-                LocalStatus.ObservableForProperty(ls => ls.Value).Select(p => p.Value == "Not imported"));
-            SyncCommand.Subscribe(async _ =>
-            {
-                await SyncTask(config, project, Id, Name);
-                LocalStatus.Reset();
-                var value = LocalStatus.Value;
-            });
-        }
+    private static string EscapeProjectName(string name) => ArgumentProcessor.CygwinPrepareArgument(name);
 
-        private static string EscapeProjectName(string name) => ArgumentProcessor.CygwinPrepareArgument(name);
+    private class TaskwarriorTaskInfo { }
 
-        private class TaskwarriorTaskInfo { }
-
-        private Task<string> GetLocalStatus(Config config, string project, int id)
+    private Task<string> GetLocalStatus(Config config, string project, int id)
+    {
+        var simpleProjectName = project.Split('/')[1];
+        var startInfo = StartTaskWarrior(
+            config,
+            $"taskomatic_ghproject:{EscapeProjectName(project)}",
+            $"taskomatic_id:{id}",
+            "or",
+            $"/{simpleProjectName}#{id}: /",
+            "export");
+        return Task.Run(() =>
         {
-            var simpleProjectName = project.Split('/')[1];
-            var startInfo = StartTaskWarrior(
-                config,
-                $"taskomatic_ghproject:{EscapeProjectName(project)}",
-                $"taskomatic_id:{id}",
-                "or",
-                $"/{simpleProjectName}#{id}: /",
-                "export");
-            return Task.Run(() =>
+            using (var process = Process.Start(startInfo))
             {
-                using (var process = Process.Start(startInfo))
+                process.WaitForExit();
+                var serializer = new JsonSerializer();
+                using (var streamReader = process.StandardOutput)
+                using (var reader = new JsonTextReader(streamReader))
                 {
-                    process.WaitForExit();
-                    var serializer = new JsonSerializer();
-                    using (var streamReader = process.StandardOutput)
-                    using (var reader = new JsonTextReader(streamReader))
-                    {
-                        var list = serializer.Deserialize<List<TaskwarriorTaskInfo>>(reader);
-                        return list.Count == 0 ? "Not imported" : "Imported";
-                    }
+                    var list = serializer.Deserialize<List<TaskwarriorTaskInfo>>(reader);
+                    return list.Count == 0 ? "Not imported" : "Imported";
                 }
-            });
-        }
-
-        private async Task SyncTask(Config config, string project, int id, string name)
-        {
-            var status = await GetLocalStatus(config, project, id);
-            if (status != "Not imported")
-            {
-                return;
             }
+        });
+    }
 
-            var startInfo = StartTaskWarrior(
-                config,
-                "add",
-                $"{project}#{id}: {name}",
-                $"taskomatic_ghproject:{EscapeProjectName(project)}",
-                $"taskomatic_id:{id}");
-
-            await Task.Run(() =>
-            {
-                using (var process = Process.Start(startInfo))
-                {
-                    process.WaitForExit();
-                    if (process.ExitCode != 0)
-                    {
-                        throw new Exception("TaskWarrior process returned error exit code: " + process.ExitCode);
-                    }
-                }
-            });
+    private async Task SyncTask(Config config, string project, int id, string name)
+    {
+        var status = await GetLocalStatus(config, project, id);
+        if (status != "Not imported")
+        {
+            return;
         }
 
-        private ProcessStartInfo StartTaskWarrior(Config config, params string[] args) =>
-            new ProcessStartInfo(
-                config.TaskWarriorPath,
-                ArgumentProcessor.CygwinArgumentsToString(args))
+        var startInfo = StartTaskWarrior(
+            config,
+            "add",
+            $"{project}#{id}: {name}",
+            $"taskomatic_ghproject:{EscapeProjectName(project)}",
+            $"taskomatic_id:{id}");
+
+        await Task.Run(() =>
+        {
+            using (var process = Process.Start(startInfo))
             {
-                UseShellExecute = false,
-                RedirectStandardOutput = true,
-                CreateNoWindow = true
-            };
+                process.WaitForExit();
+                if (process.ExitCode != 0)
+                {
+                    throw new Exception("TaskWarrior process returned error exit code: " + process.ExitCode);
+                }
+            }
+        });
+    }
+
+    private ProcessStartInfo StartTaskWarrior(Config config, params string[] args)
+    {
+        var executablePath = (config.TaskWarriorPath, config.TaskWarriorCommand) switch
+        {
+            ({ } path, null) => path,
+            (null, { Length: > 0 } command) => command[0], // TODO[#16]: Migrate to list pattern here.
+            _ => throw new Exception($"Invalid configuration: only one of {nameof(config.TaskWarriorPath)} " +
+                                     $"or {config.TaskWarriorCommand} should be defined, and " +
+                                     $"{nameof(config.TaskWarriorCommand)} should include at least one item.")
+        };
+
+        var arguments = new List<string>();
+        if (config.TaskWarriorCommand != null)
+            arguments.AddRange(config.TaskWarriorCommand.Skip(1));
+        arguments.AddRange(args);
+
+        return new ProcessStartInfo(
+            config.TaskWarriorPath,
+            ArgumentProcessor.CygwinArgumentsToString(arguments))
+        {
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            CreateNoWindow = true
+        };
     }
 }
