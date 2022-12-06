@@ -60,20 +60,35 @@ public class IssueViewModel
             "or",
             $"/{simpleProjectName}#{id}: /",
             "export");
-        return Task.Run(() =>
+        return Task.Run(async () =>
         {
-            using (var process = Process.Start(startInfo))
-            {
-                process.WaitForExit();
-                var serializer = new JsonSerializer();
-                using (var streamReader = process.StandardOutput)
-                using (var reader = new JsonTextReader(streamReader))
-                {
-                    var list = serializer.Deserialize<List<TaskwarriorTaskInfo>>(reader);
-                    return list.Count == 0 ? "Not imported" : "Imported";
-                }
-            }
+            using var process = Process.Start(startInfo);
+            var output = await GetExecutionResult(process);
+            if (output.ExitCode != 0)
+                throw new Exception($"Process has exited with code {output.ExitCode}:\n{output.StdErr}");
+
+            var list = JsonConvert.DeserializeObject<List<TaskwarriorTaskInfo>>(output.StdOut);
+            return list.Count == 0 ? "Not imported" : "Imported";
         });
+    }
+
+    private struct ProcessExecutionResult
+    {
+        public string StdOut, StdErr;
+        public int ExitCode;
+    }
+
+    private static async Task<ProcessExecutionResult> GetExecutionResult(Process process)
+    {
+        var stdOut = process.StandardOutput.ReadToEndAsync();
+        var stdErr = process.StandardError.ReadToEndAsync();
+        await Task.Run(process.WaitForExit);
+        return new ProcessExecutionResult
+        {
+            StdOut = await stdOut,
+            StdErr = await stdErr,
+            ExitCode = process.ExitCode
+        };
     }
 
     private async Task SyncTask(Config config, string project, int id, string name)
@@ -121,11 +136,12 @@ public class IssueViewModel
         arguments.AddRange(args);
 
         return new ProcessStartInfo(
-            config.TaskWarriorPath,
+            executablePath,
             ArgumentProcessor.CygwinArgumentsToString(arguments))
         {
             UseShellExecute = false,
             RedirectStandardOutput = true,
+            RedirectStandardError = true,
             CreateNoWindow = true
         };
     }
