@@ -38,7 +38,7 @@ public class IssueViewModel
         LocalStatus = new LazyAsync<string>(() => GetLocalStatus(config, project, Id), "Loading…");
         SyncCommand = ReactiveCommand.Create(
             LocalStatus.ObservableForProperty(ls => ls.Value).Select(p => p.Value == "Not imported"));
-        SyncCommand.Subscribe(async _ => // TODO: NoAwait
+        SyncCommand.Subscribe(async _ => // TODO[#21]: NoAwait
         {
             await SyncTask(config, project, Id, Name);
             LocalStatus.Reset();
