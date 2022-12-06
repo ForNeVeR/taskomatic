@@ -16,7 +16,7 @@ public class Config
 
     public string[] GitHubProjects { get; set; } = null!;
     public string? TaskWarriorPath { get; set; }
-    public string[]? TaskWarriorCommand { get; set; } // TODO: Documentation
+    public string[]? TaskWarriorCommand { get; set; }
     public string? GitHubAccessToken { get; set; }
 
     public static Task<Config> Read(Stream input)
