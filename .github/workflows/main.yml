@@ -15,8 +15,8 @@ jobs:
     strategy:
       matrix:
         image:
-          # TODO[#16]: - macos-12
-          # TODO[#16]: - ubuntu-22.04
+          - macos-12
+          - ubuntu-22.04
           - windows-2022
     env:
       NUGET_PACKAGES: ${{ github.workspace }}/.github/nuget-packages

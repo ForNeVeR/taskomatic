@@ -2,8 +2,11 @@
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Reactive;
 using System.Reactive.Linq;
 using System.Reflection;
+using System.Threading.Tasks;
+using Avalonia.Threading;
 using Octokit;
 using Octokit.Internal;
 using ReactiveUI;
@@ -95,7 +98,7 @@ namespace Taskomatic.Core
             }
         }
 
-        public ReactiveCommand<object> LoadIssues { get; }
+        public ReactiveCommand<Unit, Unit> LoadIssues { get; }
 
         private static GitHubClient InitializeGitHubClient(Config config) =>
             string.IsNullOrWhiteSpace(config.GitHubAccessToken)
@@ -106,29 +109,30 @@ namespace Taskomatic.Core
         {
             AllProjects = config.GitHubProjects.ToList();
 
-            LoadIssues = ReactiveCommand.Create(this.ObservableForProperty(m => m.SelectedProject).Select(p => p != null));
-            LoadIssues.Subscribe(async _ =>
-            {
-                var projectInfo = SelectedProject.Split('/');
-                var user = projectInfo[0];
-                var repo = projectInfo[1];
-                var client = InitializeGitHubClient(config);
-                var issues = await client.Issue.GetAllForRepository(user, repo, new RepositoryIssueRequest
+            LoadIssues = ReactiveCommand.CreateFromTask(
+                async _ =>
                 {
-                    State = ItemStateFilter.All
-                });
+                    var projectInfo = SelectedProject.Split('/');
+                    var user = projectInfo[0];
+                    var repo = projectInfo[1];
+                    var client = InitializeGitHubClient(config);
+                    var issues = await client.Issue.GetAllForRepository(user, repo, new RepositoryIssueRequest
+                    {
+                        State = ItemStateFilter.All
+                    });
 
-                _allIssues.Clear();
-                _allIssues.AddRange(issues.Select(i => new IssueViewModel(config, SelectedProject, i)));
+                    _allIssues.Clear();
+                    _allIssues.AddRange(issues.Select(i => new IssueViewModel(config, SelectedProject, i)));
 
-                FillCollection(States, _allIssues.Select(i => i.Status).Distinct());
-                FillCollection(Assignees, _allIssues.SelectMany(i => i.Assignees).Distinct());
+                    FillCollection(States, _allIssues.Select(i => i.Status).Distinct());
+                    FillCollection(Assignees, _allIssues.SelectMany(i => i.Assignees).Distinct());
 
-                FilterState = null;
-                FilterAssignee = null;
+                    FilterState = null;
+                    FilterAssignee = null;
 
-                Filter();
-            });
+                    Filter();
+                },
+                this.ObservableForProperty(m => m.SelectedProject).Select(p => p != null));
         }
 
         private static void FillCollection<T>(ObservableCollection<T> collection, IEnumerable<T> items)

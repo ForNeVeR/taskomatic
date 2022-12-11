@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Reactive;
 using System.Reactive.Linq;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
@@ -25,7 +26,7 @@ public class IssueViewModel
 
     public LazyAsync<string> LocalStatus { get; }
 
-    public ReactiveCommand<object> SyncCommand { get; }
+    public ReactiveCommand<Unit, Unit> SyncCommand { get; }
 
     public IssueViewModel(Config config, string project, Issue issue)
     {
@@ -36,14 +37,14 @@ public class IssueViewModel
         Assignees = issue.Assignees.Select(u => u.Login).ToList();
 
         LocalStatus = new LazyAsync<string>(() => GetLocalStatus(config, project, Id), "Loading…");
-        SyncCommand = ReactiveCommand.Create(
+        SyncCommand = ReactiveCommand.CreateFromTask(
+            async _ =>
+            {
+                await SyncTask(config, project, Id, Name);
+                LocalStatus.Reset();
+                var value = LocalStatus.Value;
+            },
             LocalStatus.ObservableForProperty(ls => ls.Value).Select(p => p.Value == "Not imported"));
-        SyncCommand.Subscribe(async _ => // TODO[#21]: NoAwait
-        {
-            await SyncTask(config, project, Id, Name);
-            LocalStatus.Reset();
-            var value = LocalStatus.Value;
-        });
     }
 
     private static string EscapeProjectName(string name) => ArgumentProcessor.CygwinPrepareArgument(name);

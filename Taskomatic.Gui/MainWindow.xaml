@@ -1,6 +1,8 @@
 ﻿<Window xmlns="https://github.com/avaloniaui"
         xmlns:core="clr-namespace:Taskomatic.Core;assembly=Taskomatic.Core"
         xmlns:local="clr-namespace:Taskomatic.Gui;assembly=Taskomatic.Gui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="Taskomatic.Gui.MainWindow"
         MinWidth="500"
         MinHeight="300"
         Title="taskomatic">
