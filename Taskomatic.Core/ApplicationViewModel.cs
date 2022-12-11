@@ -1,12 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Reactive;
 using System.Reactive.Linq;
 using System.Reflection;
-using System.Threading.Tasks;
-using Avalonia.Threading;
 using Octokit;
 using Octokit.Internal;
 using ReactiveUI;

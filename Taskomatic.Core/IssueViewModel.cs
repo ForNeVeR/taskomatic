@@ -125,7 +125,7 @@ public class IssueViewModel
         var executablePath = (config.TaskWarriorPath, config.TaskWarriorCommand) switch
         {
             ({ } path, null) => path,
-            (null, { Length: > 0 } command) => command[0], // TODO[#16]: Migrate to list pattern here.
+            (null,  [var executable, _]) => executable,
             _ => throw new Exception($"Invalid configuration: only one of {nameof(config.TaskWarriorPath)} " +
                                      $"or {config.TaskWarriorCommand} should be defined, and " +
                                      $"{nameof(config.TaskWarriorCommand)} should include at least one item.")
