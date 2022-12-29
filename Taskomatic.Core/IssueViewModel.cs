@@ -125,7 +125,7 @@ public class IssueViewModel
         var executablePath = (config.TaskWarriorPath, config.TaskWarriorCommand) switch
         {
             ({ } path, null) => path,
-            (null,  [var executable, _]) => executable,
+            (null,  [var executable, ..]) => executable,
             _ => throw new Exception($"Invalid configuration: only one of {nameof(config.TaskWarriorPath)} " +
                                      $"or {config.TaskWarriorCommand} should be defined, and " +
                                      $"{nameof(config.TaskWarriorCommand)} should include at least one item.")
